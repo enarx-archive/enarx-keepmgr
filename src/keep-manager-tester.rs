@@ -16,7 +16,7 @@ fn main() {
     command_list_all.insert("command".to_string(), "list-all".to_string());
     let mut command_new_keep: HashMap<String, String> = HashMap::new();
     command_new_keep.insert("command".to_string(), "new-keep".to_string());
-    command_new_keep.insert("keep-arch".to_string(), "wasi".to_string());
+    command_new_keep.insert("keep-arch".to_string(), KEEP_ARCH_WASI.to_string());
     command_new_keep.insert("auth-token".to_string(), "a3f9cb07".to_string());
     let mut command_list_keeps: HashMap<String, String> = HashMap::new();
     command_list_keeps.insert("command".to_string(), "list-keeps".to_string());

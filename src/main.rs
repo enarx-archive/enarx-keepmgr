@@ -82,31 +82,32 @@ mod models {
                                 .expect("failed to write");
                             //now get a reply
                             let deserializer = serde_json::Deserializer::from_reader(stream);
-                            let iterator = deserializer.into_iter::<serde_json::Value>();
-                            for json_pair in iterator {
-                                println!(
-                                    "Got a reply from {}, which is {:?}",
-                                    path.display(),
-                                    &json_pair
-                                );
-                                match json_pair {
-                                    Ok(value) => {
-                                        let keeploader: KeepLoader =
-                                            serde_json::from_value(value).unwrap();
-                                        let mut keeploaderlist = kllvec.lock().await;
-                                        println!(
-                                            "keeploader on {} has kuuid {}",
-                                            path.display(),
-                                            keeploader.kuuid,
-                                        );
-                                        keeploaderlist.push(keeploader);
-                                        println!("Pushed keeploader to list");
-                                    }
-                                    Err(e) => println!("not a useful reply {}", e),
-                                }
+                            let mut iterator = deserializer.into_iter::<serde_json::Value>();
+                            //we're only expecting one command
+                            let json_pair = iterator.next();
+                            //for json_pair in iterator {
+                            println!(
+                                "Got a reply from {}, which is {:?}",
+                                path.display(),
+                                &json_pair
+                            );
 
-                                break;
+                            match json_pair.unwrap() {
+                                Ok(value) => {
+                                    let keeploader: KeepLoader =
+                                        serde_json::from_value(value).unwrap();
+                                    let mut keeploaderlist = kllvec.lock().await;
+                                    println!(
+                                        "keeploader on {} has kuuid {}",
+                                        path.display(),
+                                        keeploader.kuuid,
+                                    );
+                                    keeploaderlist.push(keeploader);
+                                    println!("Pushed keeploader to list");
+                                }
+                                Err(e) => println!("not a useful reply {}", e),
                             }
+                            //  break;
                         }
                         Err(_) => println!("Unable to connect to {:?}", path.display()),
                     }
