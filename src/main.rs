@@ -138,7 +138,7 @@ mod filters {
     pub fn new_keep(
         authtoken: &str,
         apploaderbindport: u16,
-        apploaderbindaddr: &str,
+        _apploaderbindaddr: &str,
     ) -> KeepLoader {
         let new_kuuid = rand::random::<usize>();
 
