@@ -27,5 +27,5 @@ path = "src/lib.rs"
 
 
 [[bin]]
-name = "keep-manager-tester"
+name = "enarx-keepmgr-tester"
 path = "src/keep-manager-tester.rs"

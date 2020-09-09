@@ -147,10 +147,9 @@ mod filters {
         //TODO - the chances should be _pretty_ low, but should
         // we check for an existing keep?
         //TODO - remove hard-coded systemd-escape sequence ("\x20")
-        let service_cmd = format!(
-            "enarx-keep@{}\\x20{}\\x20{}.service",
-            new_kuuid, apploaderbindaddr, apploaderbindport
-        );
+        let operation_type = "daemon";
+        let service_cmd = format!("enarx-keep@{}\\x20{}.service", operation_type, new_kuuid);
+        //let service_cmd = format!("enarx-keep@\"{}\\x20{}\".service", operation_type, new_kuuid);
         println!("service_cmd = {}", service_cmd);
         let _child = Command::new("systemctl")
             .arg("--user")
