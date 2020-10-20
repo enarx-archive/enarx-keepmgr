@@ -3,6 +3,7 @@
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use uuid::Uuid;
 
 pub const LOCAL_LISTEN_ADDRESS: &str = "192.168.1.202";
 
@@ -27,6 +28,7 @@ pub const KEEP_ARCH: &str = "keep-arch";
 pub const KEEP_ARCH_WASI: &str = "wasi";
 pub const KEEP_ARCH_SEV: &str = "AMD-SEV";
 pub const KEEP_ARCH_SGX: &str = "Intel-SGX";
+pub const KEEP_ARCH_KVM: &str = "kvm";
 //pub const KEEP_APP_LOADER_BIND_PORT: &str = "app-loader-bind-port";
 pub const APP_LOADER_BIND_PORT_START: u16 = 3031;
 pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start";
@@ -38,7 +40,7 @@ pub type KeepLoaderList = Arc<Mutex<Vec<KeepLoader>>>;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct KeepLoader {
     pub state: u8,
-    pub kuuid: usize,
+    pub kuuid: Uuid,
     pub app_loader_bind_port: u16,
     pub bindaddress: String,
     //we may wish to add information here about whether we're happy to share

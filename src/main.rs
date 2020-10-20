@@ -10,13 +10,9 @@ use warp::Filter;
 async fn main() {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), BIND_PORT);
 
+    //Provide mechanism to find existing Keeps
     let keeploaderlist = models::find_existing_keep_loaders();
 
-    // TODO: in case there are existing keeploaders out there, try finding them at
-    //  /tmp/enarx-keep-*.sock, try connecting to them, if OK, add to
-    //  keeploaderlist
-    // TODO: what if we can't connect?  should we delete them?  Mark them dead?
-    // Match any non-explicitly managed requests "/" request and return
     let declare = warp::any().map(|| {
         format!(
             "Protocol_name = {}\nProtocol_version = {}",
@@ -45,9 +41,9 @@ async fn main() {
 
 mod models {
     use ::host_components::*;
-    use glob::glob;
-    use std::io::prelude::*;
-    use std::os::unix::net::UnixStream;
+    //use glob::glob;
+    //use std::io::prelude::*;
+    //use std::os::unix::net::UnixStream;
     use std::sync::Arc;
     use tokio::sync::Mutex;
 
@@ -58,6 +54,7 @@ mod models {
     pub async fn find_existing_keep_loaders() -> KeepLoaderList {
         println!("Looking for existing keep-loaders in /tmp");
         let kllvec = new_empty_keeploaderlist();
+        /*
         for existing_keeps in glob("/tmp/enarx-keep-*.sock").expect("Failed to read glob pattern") {
             //println!("keep-loader = {:?}", &existing_keeps);
             //TODO - rework this code - it's fairly brittle.  As an iterator.next(), maybe?
@@ -115,7 +112,7 @@ mod models {
                 Err(e) => println!("{:?}", e),
             }
         }
-        println!("Completed iterating through keep-loaders");
+        println!("Completed iterating through keep-loaders");*/
         kllvec
     }
 }
@@ -127,6 +124,7 @@ mod filters {
     use std::io::prelude::*;
     use std::os::unix::net::UnixStream;
     use std::process::Command;
+    use uuid::Uuid;
     use warp::Filter;
 
     pub fn with_keeploaderlist(
@@ -140,7 +138,8 @@ mod filters {
         apploaderbindport: u16,
         _apploaderbindaddr: &str,
     ) -> KeepLoader {
-        let new_kuuid = rand::random::<usize>();
+        //let new_kuuid = rand::random::<usize>();
+        let new_kuuid = Uuid::new_v4();
 
         println!("Received auth_token {}", authtoken);
         println!("About to spawn new keep-loader");
@@ -208,12 +207,21 @@ mod filters {
         let mut json_reply = warp::reply::json(&undefined);
 
         match command_group.get(KEEP_COMMAND).unwrap().as_str() {
+            "list-keep-types" => {
+                //TODO - this should really be an Arc Mutex, available for the
+                // lifetime of this keepmgr instance
+                let available_backends: Vec<String> = Vec::new();
+                //TODO - list available backends available on this host
+                json_reply = warp::reply::json(&available_backends)
+            }
             "new-keep" => {
+                //TODO - should we police this here?
                 let supported: bool;
                 println!("new-keep ...");
                 let authtoken = command_group.get(KEEP_AUTH).unwrap();
                 let keeparch = command_group.get(KEEP_ARCH).unwrap().as_str();
                 match keeparch {
+                    //TODO - parse based on what's available
                     KEEP_ARCH_WASI => {
                         //currently only supported option
                         supported = true;
@@ -226,6 +234,10 @@ mod filters {
                     }
                     KEEP_ARCH_SGX => {
                         //currently unsupported
+                        //TODO - better error-handling
+                        supported = false;
+                    }
+                    KEEP_ARCH_KVM => {
                         //TODO - better error-handling
                         supported = false;
                     }
@@ -249,7 +261,7 @@ mod filters {
                 } else {
                     let new_keeploader = KeepLoader {
                         state: KEEP_LOADER_STATE_ERROR,
-                        kuuid: 0,
+                        kuuid: Uuid::parse_str("0").unwrap(),
                         app_loader_bind_port: 0,
                         bindaddress: "".to_string(),
                     };
@@ -278,7 +290,7 @@ mod filters {
             "start-keep" => {
                 let mut kll = keeploaderlist.lock().await;
                 let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
-                let kuuid: usize = command_group.get(KEEP_KUUID).unwrap().parse().unwrap();
+                let kuuid: Uuid = command_group.get(KEEP_KUUID).unwrap().parse().unwrap();
 
                 let keepaddr_opt = command_group.get(KEEP_ADDR);
                 let keepport_opt = command_group.get(KEEP_PORT);
