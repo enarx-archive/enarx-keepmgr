@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use serde_derive::{Deserialize, Serialize};
+use std::os::unix::net::UnixStream;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -25,7 +26,7 @@ pub const KEEP_PORT: &str = "keep-port";
 pub const KEEP_ADDR: &str = "keep-addr";
 pub const KEEP_KUUID: &str = "kuuid";
 pub const KEEP_ARCH: &str = "keep-arch";
-pub const KEEP_ARCH_WASI: &str = "wasi";
+pub const KEEP_ARCH_NIL: &str = "nil";
 pub const KEEP_ARCH_SEV: &str = "AMD-SEV";
 pub const KEEP_ARCH_SGX: &str = "Intel-SGX";
 pub const KEEP_ARCH_KVM: &str = "kvm";
@@ -35,6 +36,7 @@ pub const KEEP_APP_LOADER_START_COMMAND: &str = "apploader-start";
 pub const KEEP_APP_LOADER_ADDR: &str = "apploader-addr";
 pub const KEEP_APP_LOADER_PORT: &str = "apploader-port";
 
+//pub type BackendList = Arc<Mutex<Vec<String>>>;
 pub type KeepLoaderList = Arc<Mutex<Vec<KeepLoader>>>;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -43,6 +45,8 @@ pub struct KeepLoader {
     pub kuuid: Uuid,
     pub app_loader_bind_port: u16,
     pub bindaddress: String,
+    pub unix_socket: Unixstream,
+    pub backend: String,
     //we may wish to add information here about whether we're happy to share
     // all of this information with external parties, but since the keeploader
     // is operating outside the TEE boundary, there's only so much we can do

@@ -10,6 +10,9 @@ use warp::Filter;
 async fn main() {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), BIND_PORT);
 
+    //find available backends for this host (currently only local - may extend?)
+    let available_backends = models::populate_available_backends();
+
     //Provide mechanism to find existing Keeps
     let keeploaderlist = models::find_existing_keep_loaders();
 
@@ -23,6 +26,7 @@ async fn main() {
     let keep_posts = warp::post()
         .and(warp::path("keeps_post"))
         .and(warp::body::json())
+        .and(filters::with_available_backends(available_backends.await))
         .and(filters::with_keeploaderlist(keeploaderlist.await))
         .and_then(filters::keeps_parse);
 
@@ -41,78 +45,25 @@ async fn main() {
 
 mod models {
     use ::host_components::*;
-    //use glob::glob;
-    //use std::io::prelude::*;
-    //use std::os::unix::net::UnixStream;
     use std::sync::Arc;
     use tokio::sync::Mutex;
+
+    pub async fn populate_available_backends() -> Vec<String> {
+        let mut available_backends = Vec::new();
+        //add backends - assume both KVM and Wasi ("nil") are available
+        //TODO - add checks for SEV and SGX
+        available_backends.push(KEEP_ARCH_NIL.to_string());
+        available_backends.push(KEEP_ARCH_KVM.to_string());
+        available_backends.clone()
+    }
 
     pub fn new_empty_keeploaderlist() -> KeepLoaderList {
         Arc::new(Mutex::new(Vec::new()))
     }
-
     pub async fn find_existing_keep_loaders() -> KeepLoaderList {
         println!("Looking for existing keep-loaders in /tmp");
         let kllvec = new_empty_keeploaderlist();
-        /*
-        for existing_keeps in glob("/tmp/enarx-keep-*.sock").expect("Failed to read glob pattern") {
-            //println!("keep-loader = {:?}", &existing_keeps);
-            //TODO - rework this code - it's fairly brittle.  As an iterator.next(), maybe?
-            match existing_keeps {
-                Ok(path) => {
-                    let stream_result = UnixStream::connect(path.clone());
-                    match stream_result {
-                        Ok(mut stream) => {
-                            println!("Able to connect to {:?}", path.display());
-                            //this is what we'll add, but first we need to contact the
-                            //keep-loader and find out information about the Keep
-                            let jsoncommand = JsonCommand {
-                                commandtype: String::from(KEEP_INFO_COMMAND),
-                                commandcontents: "".to_string(),
-                            };
-                            let serializedjson = serde_json::to_string(&jsoncommand)
-                                .expect("problem serializing data");
-
-                            //println!("Sending JSON data\n{}", serializedjson);
-                            stream
-                                .write_all(&serializedjson.as_bytes())
-                                .expect("failed to write");
-                            //now get a reply
-                            let deserializer = serde_json::Deserializer::from_reader(stream);
-                            let mut iterator = deserializer.into_iter::<serde_json::Value>();
-                            //we're only expecting one command
-                            let json_pair = iterator.next();
-                            //for json_pair in iterator {
-                            println!(
-                                "Got a reply from {}, which is {:?}",
-                                path.display(),
-                                &json_pair
-                            );
-
-                            match json_pair.unwrap() {
-                                Ok(value) => {
-                                    let keeploader: KeepLoader =
-                                        serde_json::from_value(value).unwrap();
-                                    let mut keeploaderlist = kllvec.lock().await;
-                                    println!(
-                                        "keeploader on {} has kuuid {}",
-                                        path.display(),
-                                        keeploader.kuuid,
-                                    );
-                                    keeploaderlist.push(keeploader);
-                                    println!("Pushed keeploader to list");
-                                }
-                                Err(e) => println!("not a useful reply {}", e),
-                            }
-                            //  break;
-                        }
-                        Err(_) => println!("Unable to connect to {:?}", path.display()),
-                    }
-                }
-                Err(e) => println!("{:?}", e),
-            }
-        }
-        println!("Completed iterating through keep-loaders");*/
+        //TODO - implement (scheme required)
         kllvec
     }
 }
@@ -127,6 +78,12 @@ mod filters {
     use uuid::Uuid;
     use warp::Filter;
 
+    pub fn with_available_backends(
+        available_backends: Vec<String>,
+    ) -> impl Filter<Extract = (Vec<String>,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || available_backends.clone())
+    }
+
     pub fn with_keeploaderlist(
         keeploaderlist: KeepLoaderList,
     ) -> impl Filter<Extract = (KeepLoaderList,), Error = std::convert::Infallible> + Clone {
@@ -137,16 +94,18 @@ mod filters {
         authtoken: &str,
         apploaderbindport: u16,
         _apploaderbindaddr: &str,
+        backend: &str,
     ) -> KeepLoader {
-        //let new_kuuid = rand::random::<usize>();
         let new_kuuid = Uuid::new_v4();
+        //TODO - create UNIX socket
+        let bind_socket = format!("/tmp/enarx-keep-{}.sock", &kuuid);
+        //FIXME - change to listen?
+        let mut stream = UnixStream::connect(bind_socket).expect("failed to connect");
 
         println!("Received auth_token {}", authtoken);
         println!("About to spawn new keep-loader");
-        //TODO - the chances should be _pretty_ low, but should
-        // we check for an existing keep?
         //TODO - remove hard-coded systemd-escape sequence ("\x20")
-        let operation_type = "daemon";
+        let operation_type = "exec";
         let service_cmd = format!("enarx-keep@{}\\x20{}.service", operation_type, new_kuuid);
         //let service_cmd = format!("enarx-keep@\"{}\\x20{}\".service", operation_type, new_kuuid);
         println!("service_cmd = {}", service_cmd);
@@ -168,6 +127,8 @@ mod filters {
             kuuid: new_kuuid,
             app_loader_bind_port: apploaderbindport,
             bindaddress: "".to_string(),
+            unix_socket: stream,
+            backend: backend.to_string(),
         }
     }
 
@@ -196,11 +157,9 @@ mod filters {
 
     pub async fn keeps_parse(
         command_group: HashMap<String, String>,
+        available_backends: Vec<String>,
         keeploaderlist: KeepLoaderList,
     ) -> Result<impl warp::Reply, Infallible> {
-        //NOTE - is this actually Infallible?
-        //   ) -> Result<impl warp::Reply, warp::Rejection> {
-
         let undefined = UndefinedReply {
             text: String::from("undefined"),
         };
@@ -208,64 +167,40 @@ mod filters {
 
         match command_group.get(KEEP_COMMAND).unwrap().as_str() {
             "list-keep-types" => {
-                //TODO - this should really be an Arc Mutex, available for the
-                // lifetime of this keepmgr instance
-                let available_backends: Vec<String> = Vec::new();
-                //TODO - list available backends available on this host
+                //TODO - populate and return
                 json_reply = warp::reply::json(&available_backends)
             }
             "new-keep" => {
-                //TODO - should we police this here?
-                let supported: bool;
+                //assume unsupported to start
+                let mut supported: bool = false;
                 println!("new-keep ...");
                 let authtoken = command_group.get(KEEP_AUTH).unwrap();
                 let keeparch = command_group.get(KEEP_ARCH).unwrap().as_str();
-                match keeparch {
-                    //TODO - parse based on what's available
-                    KEEP_ARCH_WASI => {
-                        //currently only supported option
-                        supported = true;
-                        println!("wasi keep to be started");
-                    }
-                    KEEP_ARCH_SEV => {
-                        //currently unsupported
-                        //TODO - better error-handling
-                        supported = false;
-                    }
-                    KEEP_ARCH_SGX => {
-                        //currently unsupported
-                        //TODO - better error-handling
-                        supported = false;
-                    }
-                    KEEP_ARCH_KVM => {
-                        //TODO - better error-handling
-                        supported = false;
-                    }
-                    _ => {
-                        //default to nothing, for safety
-                        supported = false;
-                    }
+                //               match keeparch {
+
+                if available_backends.iter().any(|backend| backend == keeparch) {
+                    supported = true;
                 }
 
                 if supported {
                     let mut kll = keeploaderlist.lock().await;
-                    let new_keeploader = new_keep(authtoken, 0, "");
+                    let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
+
+                    let new_keeploader = new_keep(authtoken, 0, "", keeparch);
                     println!(
                         "Keeploaderlist currently has {} entries, about to add {}",
                         kll.len(),
                         new_keeploader.kuuid,
                     );
+                    //TODO - pass UNIX socket in arguments
+                    //TODO - pass backend-type in Environment
+                    //TODO - spawn new keepldr
+                    //TODO - add keeploader to kllvec
                     //add this new new keeploader to the list
                     kll.push(new_keeploader.clone());
                     json_reply = warp::reply::json(&new_keeploader);
                 } else {
-                    let new_keeploader = KeepLoader {
-                        state: KEEP_LOADER_STATE_ERROR,
-                        kuuid: Uuid::parse_str("0").unwrap(),
-                        app_loader_bind_port: 0,
-                        bindaddress: "".to_string(),
-                    };
-                    //this is an empty, unsupported Keep
+                    //FIXME - Error out
                     json_reply = warp::reply::json(&new_keeploader);
                 }
             }
@@ -284,9 +219,9 @@ mod filters {
                     );
                 }
                 let json_keeploadervec = KeepLoaderVec { klvec: kllvec };
-
                 json_reply = warp::reply::json(&json_keeploadervec);
             }
+            /*
             "start-keep" => {
                 let mut kll = keeploaderlist.lock().await;
                 let kllvec: Vec<KeepLoader> = kll.clone().into_iter().collect();
@@ -372,7 +307,6 @@ mod filters {
                     .write_all(&serializedjson_start.as_bytes())
                     .expect("failed to write");
                 //update the information about this keep-loader
-                //TODO - update with a query on the keep-loader itself?
                 //first find the correct entry in the list
                 for k in 0..kll.len() {
                     let keeploader = &kll[k];
@@ -390,8 +324,7 @@ mod filters {
                         break;
                     }
                 }
-            }
-
+            }*/
             &_ => {}
         }
         println!(
