@@ -16,8 +16,9 @@ fn main() {
     command_list_all.insert("command".to_string(), "list-all".to_string());
     let mut command_new_keep: HashMap<String, String> = HashMap::new();
     command_new_keep.insert("command".to_string(), "new-keep".to_string());
-    command_new_keep.insert("keep-arch".to_string(), KEEP_ARCH_WASI.to_string());
+    command_new_keep.insert("keep-arch".to_string(), KEEP_ARCH_NIL.to_string());
     command_new_keep.insert("auth-token".to_string(), "a3f9cb07".to_string());
+
     let mut command_list_keeps: HashMap<String, String> = HashMap::new();
     command_list_keeps.insert("command".to_string(), "list-keeps".to_string());
 
@@ -107,11 +108,8 @@ fn main() {
     println!("State 15 = error state\n");
     for keeploader in &keeploadervec.klvec {
         println!(
-            "Keep kuuid {}, state {}, listening on {}:{}",
-            keeploader.kuuid,
-            keeploader.state,
-            keeploader.bindaddress,
-            keeploader.app_loader_bind_port
+            "Keep kuuid {}, state {}",
+            keeploader.kuuid, keeploader.state,
         );
     }
 
@@ -121,104 +119,9 @@ fn main() {
     if *number_of_kls < 1 {
         panic!("We don't have any keep-loaders to start, sorry!  This is an error.");
     }
-    println!("Press <Enter> to start the most recently created Keep");
-
-    io::stdin()
-        .read_line(&mut user_input)
-        .expect("Failed to read line");
-
-    println!(
-        "About to send start-keep command for kuuid {}, to listen on port {}",
-        &keeploadervec.klvec.last().unwrap().kuuid.to_string(),
-        &keeploadervec.klvec[number_of_kls - 1]
-            .app_loader_bind_port
-            .to_string()
-    );
-
-    /*
-    pub const KEEP_PORT: &str = "keep-port";
-    pub const KEEP_ADDR: &str = "keep-addr";
-    pub const KEEP_KUUID: &str = "kuuid";
-     */
-    let mut command_start_keep: HashMap<String, String> = HashMap::new();
-    command_start_keep.insert("command".to_string(), "start-keep".to_string());
-    command_start_keep.insert(
-        KEEP_KUUID.to_string(),
-        keeploadervec.klvec.last().unwrap().kuuid.to_string(),
-    );
-
-    //TEST CASE 1 - localhost:3031
-    command_start_keep.insert(KEEP_PORT.to_string(), 3031.to_string());
-    command_start_keep.insert(KEEP_ADDR.to_string(), "127.0.0.1".to_string());
-
-    //TEST CASE 2 - localhost:UNASSIGNED
-    //command_start_keep.insert(KEEP_ADDR.to_string(), "127.0.0.1".to_string());
-
-    //TEST CASE 3 - other_addr:3035
-    //NOTE: hard-coded IP address!
-    //command_start_keep.insert(KEEP_PORT.to_string(), 3035.to_string());
-    //command_start_keep.insert(KEEP_ADDR.to_string(), LOCAL_LISTEN_ADDRESS.to_string());
-
-    //TEST CASE 3 - other_addr::UNASSIGNED
-    //command_start_keep.insert(KEEP_ADDR.to_string(), LOCAL_LISTEN_ADDRESS.to_string());
-
-    //start the first keep in our list
-    let _res4 = reqwest::blocking::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .unwrap()
-        .post("https://localhost:3030/keeps_post/")
-        .json(&command_start_keep)
-        .send()
-        .expect("Possible issues");
-
-    println!();
-    println!("And <Enter> to list all keeps again");
-
-    io::stdin()
-        .read_line(&mut user_input)
-        .expect("Failed to read line");
-
-    //list keeps
-    let res5 = reqwest::blocking::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .unwrap()
-        .post("https://localhost:3030/keeps_post/")
-        .json(&command_list_keeps)
-        .send()
-        .expect("Possible issues");
-    let keeploadervec2: KeepLoaderVec = res5.json().expect("Possible issues");
-    //TODO - output
-    println!("State 0  = undefined (awaiting start)");
-    println!("State 1  = listening for commands");
-    println!("State 2  = started (awaiting workload)");
-    println!("State 3  = completed");
-    println!("State 15 = error state\n");
-    for keeploader in &keeploadervec2.klvec {
-        println!(
-            "Keep kuuid {}, state {}, listening on {}:{}",
-            keeploader.kuuid,
-            keeploader.state,
-            keeploader.bindaddress,
-            keeploader.app_loader_bind_port
-        );
-    }
-
-    let number_of_kls = &keeploadervec2.klvec.len();
-    println!("We have {} Keep-loaders", number_of_kls);
 
     println!();
     println!("If you got here with no unexpected errors, then we have succeeded!");
-    println!();
-    println!(
-        "Next, you probably want to load an application into your recently-started Keep using the"
-    );
-    println!("command eg.app-loader-tester, with a single argument: the port on which it should");
-    println!("be listening (see last entry in the list)");
-    println!("   e.g. ./target/debug/app-loader-tester [e.g. 3031]",);
-    println!();
-    println!("Good luck!");
     println!();
     println!("Join us at https://chat.enarx.dev");
     println!("           https://github.io/enarx");

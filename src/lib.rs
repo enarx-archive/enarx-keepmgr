@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use serde_derive::{Deserialize, Serialize};
-use std::os::unix::net::UnixStream;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
@@ -27,8 +26,8 @@ pub const KEEP_ADDR: &str = "keep-addr";
 pub const KEEP_KUUID: &str = "kuuid";
 pub const KEEP_ARCH: &str = "keep-arch";
 pub const KEEP_ARCH_NIL: &str = "nil";
-pub const KEEP_ARCH_SEV: &str = "AMD-SEV";
-pub const KEEP_ARCH_SGX: &str = "Intel-SGX";
+pub const KEEP_ARCH_SEV: &str = "sev";
+pub const KEEP_ARCH_SGX: &str = "sgx";
 pub const KEEP_ARCH_KVM: &str = "kvm";
 //pub const KEEP_APP_LOADER_BIND_PORT: &str = "app-loader-bind-port";
 pub const APP_LOADER_BIND_PORT_START: u16 = 3031;
@@ -45,7 +44,6 @@ pub struct KeepLoader {
     pub kuuid: Uuid,
     pub app_loader_bind_port: u16,
     pub bindaddress: String,
-    pub unix_socket: Unixstream,
     pub backend: String,
     //we may wish to add information here about whether we're happy to share
     // all of this information with external parties, but since the keeploader
