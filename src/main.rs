@@ -1,5 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! This crate provides the `enarx-keepmgr` executable which creates and
+//! coordinates enarx-keepldr instances
+//!
+//! # Build
+//!
+//!     $ git clone https://github.com/enarx/enarx-keepmgr
+//!     $ cd enarx-keepmgr
+//!     $ cargo build
+//!
+//! # Run Tests
+//!
+//!     $ cargo run enarx-keepmgr-tester
+//!
+
+#![deny(clippy::all)]
+
 extern crate serde_derive;
 
 use ::host_components::*;
