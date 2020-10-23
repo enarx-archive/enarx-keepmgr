@@ -58,7 +58,7 @@ jobs:
           profile: minimal
           override: true
       - run: cargo install cargo-readme
-      - run: cargo readme > README.md && git diff --exit-code
+      - run: (cargo readme -i src/main.rs > README.md || cargo readme > README.md) && git diff --exit-code
 
   deny:
     name: cargo deny
