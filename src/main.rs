@@ -27,10 +27,10 @@ async fn main() {
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), BIND_PORT);
 
     //find available backends for this host (currently only local - may extend?)
-    let available_backends = models::populate_available_backends();
+    let available_backends = models::populate_available_backends().await;
 
     //Provide mechanism to find existing Keeps
-    let keeploaderlist = models::find_existing_keep_loaders();
+    let keeploaderlist = models::find_existing_keep_loaders().await;
 
     let declare = warp::any().map(|| {
         format!(
@@ -42,8 +42,8 @@ async fn main() {
     let keep_posts = warp::post()
         .and(warp::path("keeps_post"))
         .and(warp::body::json())
-        .and(filters::with_available_backends(available_backends.await))
-        .and(filters::with_keeploaderlist(keeploaderlist.await))
+        .and(filters::with_available_backends(available_backends))
+        .and(filters::with_keeploaderlist(keeploaderlist))
         .and_then(filters::keeps_parse);
 
     let routes = keep_posts.or(declare);
