@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
+//! The Enarx Keep manager binary.
+//!
+//! It can be used to create and manage Enarx Keep loaders.
+
 #![deny(clippy::all)]
 
 extern crate serde_derive;
