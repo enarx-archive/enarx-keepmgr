@@ -104,8 +104,6 @@ mod models {
                                     }
                                     Err(e) => println!("not a useful reply {}", e),
                                 }
-
-                                break;
                             }
                         }
                         Err(_) => println!("Unable to connect to {:?}", path.display()),
