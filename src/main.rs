@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
+#![deny(clippy::all)]
+
 extern crate serde_derive;
 
 use ::host_components::*;
